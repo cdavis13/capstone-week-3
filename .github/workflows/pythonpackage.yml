@@ -21,8 +21,7 @@ rows = []
 for tr in trs:
     i = tr.find_all('td')
     if i:
-        rows.append(i)
-        
+        rows.append(i)        
 lst = []
 for row in rows:
     postalcode = row[0].text.rstrip()
@@ -32,5 +31,40 @@ for row in rows:
         if neighborhood == 'Not assigned':
             neighborhood = borough
         lst.append([postalcode, borough, neighborhood])
-
 # lst
+cols = ['PostalCode', 'Borough', 'Neighborhood']
+df = pd.DataFrame(lst, columns=cols)
+print(df.shape)
+# df[df.duplicated(['PostalCode'], keep=False)] - this would have shown the duplicate PostalCodes
+df = df.groupby('PostalCode').agg(
+    {
+        'Borough':'first', 
+        'Neighborhood': ', '.join,}
+    ).reset_index()
+    df.shape
+    dfgeo = pd.read_csv("Geospatial_Coordinates.csv")
+dfgeo.rename(columns={'Postal Code': 'PostalCode'}, inplace=True)
+df2 = pd.merge(df, dfgeo, on="PostalCode", how='left')
+df2.loc[df2['PostalCode'] == 'M5G']
+df2.loc[df2['PostalCode'] == 'M9V']
+geolocator = Nominatim(user_agent="coursera")
+address = 'Toronto'
+try:
+    location = geolocator.geocode(address)
+    latitude = location.latitude
+    longitude = location.longitude
+    print('The geograpical coordinates of {} are {}, {}.'.format(address, latitude, longitude))
+except AttributeError:
+    print('Cannot find: {}, will drop index: {}'.format(address, index))
+my_map = folium.Map(location=[latitude, longitude], zoom_start=11)
+# add markers to map
+for lat, lng, label in zip(df2['Latitude'], df2['Longitude'], df2['PostalCode']):
+    label = folium.Popup(label)
+    folium.CircleMarker(
+        [lat, lng],
+        radius=5,
+        popup=label,
+        color='blue',
+        fill_color='#3186cc',
+        fill_opacity=0.7).add_to(my_map)    
+my_map
